@@ -37,7 +37,7 @@ fn main() {
     let mut x: i32 = 0;
     while x <= 100 {
         if prime_check(x) == true {
-            //println!("{x} is prime!");
+            println!("{x} is prime!");
         }
         x = x + 1;
     }
@@ -48,7 +48,7 @@ fn main() {
     while y <= 100 {
         while z <= 100 {
             if coprime_checker(y, z) == true {
-                //println!("{y} and {z} are coprime!");
+                println!("{y} and {z} are coprime!");
             }
             z = z + 1;
         }
