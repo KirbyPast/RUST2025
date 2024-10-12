@@ -1,10 +1,9 @@
-fn add_chars_n(mut s:String, c:char, mut i:i32) -> String{
+fn add_chars_n(s:&mut String, c:char, mut i:i32){
     while i > 0 {
         let string = c.to_string();
         s.push_str(&string as &str);
         i = i - 1;
     }
-    return s;
 }
 
 fn main() {
@@ -12,7 +11,7 @@ fn main() {
     let mut i = 0;
     while i <26 {
         let c = (i as u8 + 'a' as u8) as char;
-        s = add_chars_n(s,c,26-i);
+        add_chars_n(&mut s,c,26-i);
 
         i+=1;
     }
