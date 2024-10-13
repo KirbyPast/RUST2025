@@ -66,6 +66,9 @@ fn add_float(s: &mut String, mut n:f32){
     s.push('.');
     let mut m = 0;
     while n.floor() != n {
+        if m == 0 && n.floor() as i32 % 10 == 0 {
+            s.push('0');
+        }
         n = n * 10 as f32;
         m = m * 10 + (n.floor() as i32 % 10);
     }
