@@ -65,12 +65,12 @@ fn add_float(s: &mut String, mut n:f32){
     add_integer(s,x);
     s.push('.');
     let mut m = 0;
-    while n.floor() != n {
-        if m == 0 && n.floor() as i32 % 10 == 0 {
+    while n.trunc() != n {
+        if m == 0 && n.trunc() as i32 % 10 == 0 {
             s.push('0');
         }
         n = n * 10 as f32;
-        m = m * 10 + (n.floor() as i32 % 10);
+        m = m * 10 + (n.trunc() as i32 % 10);
     }
     add_integer_without_separators(s,m);
 }
@@ -113,7 +113,7 @@ fn main() {
     add_space(&mut s, "lastest".len() as i32 + 2);
     add_str(&mut s, "version");
     add_space(&mut s, "is".len() as i32 + 2);
-    add_float(&mut s, 2.038);
+    add_float(&mut s, 12.607);
     add_str(&mut s,".");
 
     println!("{s}");
