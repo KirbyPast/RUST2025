@@ -1,6 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
 static SPLIT_SIZE: usize = 1024 * 1024; //Default split size is 1mB. 1024 bytes = 1kB * 1024 bytes = 1mB
 
 fn incorrect_usage(args: Vec<String>) {
@@ -70,6 +71,35 @@ fn split(file_path: &String, size: usize) -> Result<(), String> {
     }
 }
 
+fn unsplit(file_path: &String) -> Result<(), String> {
+    let mut part_count = 0;
+    let mut output_file = File::create(file_path).unwrap();
+    loop {
+        part_count = part_count + 1;
+        let part_file_name = format!("{}.part{}.split", file_path, part_count);
+        if !Path::new(&part_file_name).exists() {
+            break;
+        }
+
+        let mut input_file = File::open(&part_file_name).unwrap();
+        let mut buff: Vec<u8> = Vec::new();
+        let bytes_read = File::read_to_end(&mut input_file, &mut buff).unwrap();
+        if bytes_read == 0 {
+            println!("Error! Corrupt splits.");
+            return Err(String::from("Corrupt files"));
+        }
+
+        match output_file.write_all(&buff) {
+            Ok(()) => {}
+            Err(e) => {
+                println!("Error! {e}");
+            }
+        }
+    }
+
+    return Ok(());
+}
+
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -121,7 +151,7 @@ fn main() -> Result<(), String> {
             }
             "unsplit" => {
                 println!("Detected unsplit command!");
-                //unsplit(file_path)?;
+                unsplit(file_path)?;
                 return Ok(());
             }
             _ => {
