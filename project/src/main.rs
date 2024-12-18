@@ -125,12 +125,7 @@ fn unsplit(file_path: &String) -> Result<(), Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        println!(
-            "Usage: {:?} split (file_path) [-s [num]b/kb/mb/gb] 
-                    OR 
-                    {:?} unsplit (file_path)",
-            args[0], args[0]
-        );
+        incorrect_usage(args);
         std::process::exit(1);
     } else {
         //let program_path: &String = &args[0];
