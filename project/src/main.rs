@@ -1,18 +1,17 @@
+use adler::adler32;
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
-use serde_derive::Serialize;
-use serde_derive::Deserialize;
-use serde_json;
-use adler::adler32;
-static SPLIT_SIZE: usize = 1024 * 1024; //Default split size is 1mB. 1024 bytes = 1kB * 1024 bytes = 1mB
+static SPLIT_SIZE: usize = 1024 * 1024;
 
-#[derive(Serialize,Deserialize)]
-struct FileHash{
+#[derive(Serialize, Deserialize)]
+struct FileHash {
     part: String,
-    hash: u32
+    hash: u32,
 }
 
 fn incorrect_usage(args: Vec<String>) {
@@ -26,32 +25,27 @@ fn incorrect_usage(args: Vec<String>) {
 }
 
 fn update_split_size(multiplier: usize, multiplier_size: String) -> Result<usize, String> {
-    let mut size: usize = 1024 * 1024; //Default is 1mb
+    let mut size: usize = 1024 * 1024;
     match multiplier_size.to_lowercase().as_str() {
-        "" => {
-            //"No suffix means bytes"
+        "" | "b" => {
             size = size / (1024 * 1024) * multiplier;
-            return Ok(size);
-        }
-        "b" => {
-            size = size / (1024 * 1024) * multiplier;
-            return Ok(size);
+            Ok(size)
         }
         "kb" => {
             size = size / 1024 * multiplier;
-            return Ok(size);
+            Ok(size)
         }
         "mb" => {
-            size = size * multiplier;
-            return Ok(size);
+            size *= multiplier;
+            Ok(size)
         }
         "gb" => {
             size = size * 1024 * multiplier;
-            return Ok(size);
+            Ok(size)
         }
         _ => {
             println!("Invalid format of size!!!");
-            return Err(String::from("Invalid format"));
+            Err(String::from("Invalid format"))
         }
     }
 }
@@ -60,7 +54,7 @@ fn split(file_path: &String, size: usize) -> Result<(), Box<dyn Error>> {
     let mut file = File::open(file_path)?;
     let mut buffer = vec![0; size];
     let mut part_count = 0;
-    let mut hashes: Vec <FileHash> =  Vec::new();
+    let mut hashes: Vec<FileHash> = Vec::new();
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
@@ -68,84 +62,93 @@ fn split(file_path: &String, size: usize) -> Result<(), Box<dyn Error>> {
             break;
         }
 
-        part_count = part_count + 1;
+        part_count += 1;
         let part_file_name = format!("{}.part{}.split", file_path, part_count);
 
         let mut part_file = File::create(&part_file_name)?;
 
-        println!("Succesfully created file");
+        println!("Succesfully created file {part_count}");
         part_file.write_all(&buffer[..bytes_read])?;
 
-        let  x = adler32(&buffer[..bytes_read])?;
-        println!("{:?}",x);
+        let x = adler32(&buffer[..bytes_read])?;
 
-        hashes.push(FileHash { part: part_file_name, hash: (x) });
+        hashes.push(FileHash {
+            part: part_file_name,
+            hash: (x),
+        });
     }
 
     let json_file_name = format!("{}.hashes.json", file_path);
-    let mut json_file = File::create(&json_file_name)?;
+    let mut json_file = File::create(json_file_name)?;
     let json_data = serde_json::to_string(&hashes)?;
     json_file.write_all(json_data.as_bytes())?;
 
-    return Ok(());
+    println!("Succesfuly split file!");
+    Ok(())
 }
 
 fn unsplit(file_path: &String) -> Result<(), Box<dyn Error>> {
+    let json_file_name = format!("{}.hashes.json", file_path);
+    let json_file = File::open(json_file_name)?;
+
     let mut output_file = File::create(file_path)?;
 
-    let json_file_name = format!("{}.hashes.json", file_path);
-    let json_file = File::open(&json_file_name)?;
     let hashes: Vec<FileHash> = serde_json::from_reader(json_file)?;
-    
+
+    let mut file_number = 0;
 
     for file_info in hashes {
+        file_number += 1;
         if !Path::new(&file_info.part).exists() {
-            println!("Error! Missing part.");
+            println!("Error! Missing part {file_number}. Created file with remaining parts.");
             return Ok(());
         }
 
         let mut input_file = File::open(file_info.part)?;
-        let mut buff : Vec<u8> = Vec::new();
+        let mut buff: Vec<u8> = Vec::new();
         let bytes_read = File::read_to_end(&mut input_file, &mut buff)?;
 
         let new_hash = adler32(&buff[..bytes_read])?;
 
-        if new_hash!=file_info.hash {
-            println!("Error! Corrupted parts. Aborting.");
+        if new_hash != file_info.hash {
+            println!("Error! Part {file_number} is corrupt. Creating file with the other parts");
             return Ok(());
-        }
-        else{
+        } else {
             output_file.write_all(&buff)?;
         }
     }
-
-    return Ok(());
+    println!("Succesfully unsplit file!");
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
+    let command: &String = &args[1];
+    if command == "help" {
+        println!(
+            "Usage: 
+            1. {} split (file_path) [-s [num]b/kb/mb/gb] 
+            2. {} unsplit (file_path)",
+            args[0], args[0]
+        );
+        return Ok(());
+    } else if args.len() < 3 {
         incorrect_usage(args);
         std::process::exit(1);
     } else {
-        //let program_path: &String = &args[0];
-        let command: &String = &args[1];
-
         let file_path = &args[2];
         match command.as_str() {
             "split" => {
-                println!("Detected split command!");
+                println!("Attempting to split file...");
                 if args.len() > 3 {
-                    //Means client has probably changed size.
                     let size_check: &String = &args[3];
-                    println!("{size_check}");
                     match size_check.as_str() {
                         "-s" => {
                             let mut multiplier_string: String = String::from("");
                             let mut multiplier_size: String = String::from("");
                             let new_size: &String = &args[4];
                             for i in new_size.chars() {
-                                if !i.is_digit(10) {
+                                if !i.is_ascii_digit() {
                                     multiplier_size.push(i);
                                 } else {
                                     multiplier_string.push(i);
@@ -158,7 +161,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                             return Ok(());
                         }
                         _ => {
-                            //Doesn't matter args is destroyed when entering function since program is over.
                             incorrect_usage(args);
                             std::process::exit(1);
                         }
@@ -168,16 +170,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             "unsplit" => {
-                println!("Detected unsplit command!");
+                println!("Attempting to unsplit file...");
                 unsplit(file_path)?;
                 return Ok(());
             }
             _ => {
-                //Doesn't matter args is destroyed when entering function since program is over.
                 incorrect_usage(args);
                 std::process::exit(1);
             }
         }
     }
-    return Ok(());
+    Ok(())
 }
